@@ -1,248 +1,90 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Bezier Path Drawing</title>
-</head>
-<body>
-  <canvas id="canvas" width="500" height="500"></canvas>
-  <div>
-    <label for="stroke-color">Stroke Color:</label>
-    <input type="color" id="stroke-color" value="#000000">
-  </div>
-  <div>
-    <label for="fill-color">Fill Color:</label>
-    <input type="color" id="fill-color" value="#ffffff">
-  </div>
-  <button id="download-svg">Download SVG</button>
+   <head>
+      <title>Bezier Path Drawing</title>
+   </head>
+   <body>
+      <canvas id="canvas" width="500" height="500"></canvas>
+      <div><label for="stroke-color">Stroke Color:</label><input type="color" id="stroke-color" value="#000000"></div>
+      <div><label for="fill-color">Fill Color:</label><input type="color" id="fill-color" value="#ffffff"></div>
+      <button id="download-svg">Download SVG</button><script>const canvas=document.getElementById("canvas"),ctx=canvas.getContext("2d");let paths=[],currentPath=null,isDrawing=!1,startX,startY;function handleMouseDown(e){startX=e.offsetX,startY=e.offsetY,isDrawing=!0,null===currentPath?(currentPath={color:document.getElementById("stroke-color").value,points:[{x:startX,y:startY}]},paths.push(currentPath)):(currentPath.points.push({x:startX,y:startY}))}function handleMouseMove(e){if(isDrawing){const x=e.offsetX,y=e.offsetY;currentPath.points.push({x,y}),redraw()}}function handleMouseUp(){isDrawing=!1}function handleSelection(e){const x=e.offsetX,y=e.offsetY,selectedPoint=null,selectedPath=null;for(const path of paths)for(let i=0;i<path.points.length;i++){const point=path.points[i],dist=Math.sqrt(Math.pow(point.x-x,2)+Math.pow(point.y-y,2));if(dist<10){selectedPoint=point,selectedPath=path;break}}null!==selectedPoint&&(currentPath=selectedPath,currentPath.selectedPointIndex=selectedPath.points.indexOf(selectedPoint),redraw())}function handleDeselection(){null!==currentPath&&(delete currentPath.selectedPointIndex,currentPath=null,redraw())}function handleKeyDown(e){if("Backspace"===e.key&&null!==currentPath&&"selectedPointIndex"in currentPath){currentPath.points.splice(currentPath.selectedPointIndex,1),delete currentPath.selectedPointIndex,redraw()}}function handleOffCurveDrag(e){const x=e.offsetX,y=e.offsetY;if(null!==currentPath&&"selectedPointIndex"in currentPath){const{selectedPointIndex:idx,points}=currentPath,point=points[idx],prevPoint=points[idx-1],nextPoint=points[idx+1],prevHandle=point.prevHandle||{x:prevPoint.x,y:prevPoint.y},nextHandle=point.nextHandle||{x:nextPoint.x,y:nextPoint.y},dx=x-point.x,dy=y-point.y;idx>0&&(prevHandle.x+=dx,prevHandle.y+=dy,point.prevHandle=prevHandle),idx<points.length-1&&(nextHandle.x+=dx,nextHandle.y+=dy,point.nextHandle=nextHandle),point.x=x,point.y=y,redraw()}}function redraw(){ctx.clearRect(0,0,canvas.width,canvas.height);for(const path of paths){ctx.beginPath(),ctx.moveTo(path.points[0].x,path.points[0].y);for(let i=1;i<path.points.length-2;i++){const c=(path.points[i].x+path.points[i+1].x)/2,d=(path.points[i].y+path.points[i+1].y)/2;path.points[i].nextHandle&&path.points[i+1].prevHandle?ctx.bezierCurveTo(path.points[i].nextHandle.x,path.points[i].nextHandle.y,path.points[i+1].prevHandle.x,path.points[i+1].prevHandle.y,c,d):ctx.lineTo(c,d)}ctx.lineTo(path.points[path s.length - 1]  const prevHandle = point.prevHandle;
+      if (prevHandle) {
+        ctx.beginPath();
+        ctx.arc(prevHandle.x, prevHandle.y, 3, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+        ctx.closePath();
 
-  <script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+        ctx.beginPath();
+        ctx.moveTo(point.x, point.y);
+        ctx.lineTo(prevHandle.x, prevHandle.y);
+        ctx.stroke();
+        ctx.closePath();
+      }
 
-let paths = [];
-let currentPath = null;
-let isDrawing = false;
-let startX, startY;
+      const nextHandle = point.nextHandle;
+      if (nextHandle) {
+        ctx.beginPath();
+        ctx.arc(nextHandle.x, nextHandle.y, 3, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+        ctx.closePath();
 
-function handleMouseDown(e) {
-  startX = e.offsetX;
-  startY = e.offsetY;
-  isDrawing = true;
-
-  if (currentPath === null) {
-    currentPath = {
-      color: document.getElementById('stroke-color').value,
-      points: [{x: startX, y: startY}]
-    };
-    paths.push(currentPath);
-  } else {
-    currentPath.points.push({x: startX, y: startY});
-  }
-}
-
-function handleMouseMove(e) {
-  if (!isDrawing) {
-    return;
-  }
-
-  const x = e.offsetX;
-  const y = e.offsetY;
-
-  currentPath.points.push({x, y});
-
-  redraw();
-}
-
-function handleMouseUp() {
-  isDrawing = false;
-}
-
-function handleSelection(e) {
-  const x = e.offsetX;
-  const y = e.offsetY;
-
-  let selectedPoint = null;
-  let selectedPath = null;
-
-  for (const path of paths) {
-    for (let i = 0; i < path.points.length; i++) {
-      const point = path.points[i];
-      const dist = Math.sqrt((point.x - x) ** 2 + (point.y - y) ** 2);
-      if (dist < 10) {
-        selectedPoint = point;
-        selectedPath = path;
-        break;
+        ctx.beginPath();
+        ctx.moveTo(point.x, point.y);
+        ctx.lineTo(nextHandle.x, nextHandle.y);
+        ctx.stroke();
+        ctx.closePath();
       }
     }
-    if (selectedPoint !== null) {
-      break;
-    }
-  }
-
-  if (selectedPoint !== null) {
-    currentPath = selectedPath;
-    currentPath.selectedPointIndex = selectedPath.points.indexOf(selectedPoint);
-    redraw();
   }
 }
 
-function handleDeselection() {
-  if (currentPath !== null) {
-    delete currentPath.selectedPointIndex;
-    currentPath = null;
-    redraw();
-  }
-}
+function downloadSVG() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', canvas.width);
+  svg.setAttribute('height', canvas.height);
 
-function handleKeyDown(e) {
-  if (e.key === 'Backspace' && currentPath !== null && 'selectedPointIndex' in currentPath) {
-    currentPath.points.splice(currentPath.selectedPointIndex, 1);
-    delete currentPath.selectedPointIndex;
-    redraw();
-  }
-}
-
-function handleOffCurveDrag(e) {
-  const x = e.offsetX;
-  const y = e.offsetY;
-
-  if (currentPath !== null && 'selectedPointIndex' in currentPath) {
-    const {selectedPointIndex, points} = currentPath;
-    const point = points[selectedPointIndex];
-    const prevPoint = points[selectedPointIndex - 1];
-    const nextPoint = points[selectedPointIndex + 1];
-    const prevHandle = point.prevHandle || {x: prevPoint.x, y: prevPoint.y};
-    const nextHandle = point.nextHandle || {x: nextPoint.x, y: nextPoint.y};
-    const dx = x - point.x;
-    const dy = y - point.y;
-
-    if (selectedPointIndex > 0) {
-      prevHandle.x += dx;
-      prevHandle.y += dy;
-      point.prevHandle = prevHandle;
-    }
-
-    if (selectedPointIndex < points.length - 1) {
-      nextHandle.x += dx;
-      nextHandle.y += dy;
-      point.nextHandle = nextHandle;
-    }
-
-    point.x = x;
-    point.y = y;
-
-    redraw();
-  }
-}
-
-function redraw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
   for (const path of paths) {
-ctx.beginPath();
-ctx.moveTo(path.points[0].x, path.points[0].y);
-    for (let i = 1; i < path.points.length - 2; i++) {
-  const c = (path.points[i].x + path.points[i + 1].x) / 2;
-  const d = (path.points[i].y + path.points[i + 1].y) / 2;
-  if (path.points[i].nextHandle && path.points[i + 1].prevHandle) {
-    ctx.bezierCurveTo(path.points[i].nextHandle.x, path.points[i].nextHandle.y, path.points[i + 1].prevHandle.x, path.points[i + 1].prevHandle.y, c, d);
-  } else {
-    ctx.lineTo(c, d);
+    const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pathElement.setAttribute('d', pathToSVG(path));
+    pathElement.setAttribute('stroke', path.color);
+    pathElement.setAttribute('stroke-width', '2');
+    pathElement.setAttribute('fill', 'none');
+    svg.appendChild(pathElement);
   }
+
+  const data = new XMLSerializer().serializeToString(svg);
+
+  const a = document.createElement('a');
+  a.setAttribute('href', 'data:image/svg+xml;base64,' + btoa(data));
+  a.setAttribute('download', 'drawing.svg');
+  a.click();
 }
 
-// draw the last segment as a straight line
-ctx.lineTo(path.points[path.points.length - 1].x, path.points[path.points.length - 1].y);
-
-ctx.strokeStyle = path.color;
-ctx.lineWidth = 2;
-ctx.stroke();
-
-// draw off-curve handles
-for (let i = 0; i < path.points.length; i++) {
-  const point = path.points[i];
-  const prevPoint = i > 0 ? path.points[i - 1] : null;
-  const nextPoint = i < path.points.length - 1 ? path.points[i + 1] : null;
-
-  if (prevPoint && point.prevHandle) {
-    ctx.beginPath();
-    ctx.arc(point.prevHandle.x, point.prevHandle.y, 3, 0, 2 * Math.PI);
-    ctx.fillStyle = 'white';
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  if (nextPoint && point.nextHandle) {
-    ctx.beginPath();
-    ctx.arc(point.nextHandle.x, point.nextHandle.y, 3, 0, 2 * Math.PI);
-    ctx.fillStyle = 'white';
-    ctx.fill();
-    ctx.stroke();
-  }
-}
-
-// draw selected off-curve handle
-if (currentPath && 'selectedPointIndex' in currentPath) {
-  const point = currentPath.points[currentPath.selectedPointIndex];
-  if (point.prevHandle) {
-    ctx.beginPath();
-    ctx.arc(point.prevHandle.x, point.prevHandle.y, 4, 0, 2 * Math.PI);
-    ctx.fillStyle = 'black';
-    ctx.fill();
-    ctx.stroke();
-  }
-  if (point.nextHandle) {
-    ctx.beginPath();
-    ctx.arc(point.nextHandle.x, point.nextHandle.y, 4, 0, 2 * Math.PI);
-    ctx.fillStyle = 'black';
-    ctx.fill();
-    ctx.stroke();
-  }
-}
+function pathToSVG(path) {
+  let d = 'M' + path.points[0].x + ' ' + path.points[0].y + ' ';
+  for (let i = 1; i < path.points.length - 2; i++) {
+    const c = (path.points[i].x + path.points[i + 1].x) / 2;
+    const d1 = (path.points[i].y + path.points[i + 1].y) / 2;
+    if (path.points[i].nextHandle && path.points[i + 1].prevHandle) {
+      d += 'C' + path.points[i].nextHandle.x + ' ' + path.points[i].nextHandle.y + ' ' + path.points[i + 1].prevHandle.x + ' ' + path.points[i + 1].prevHandle.y + ' ' + c + ' ' + d1 + ' ';
+    } else {
+      d += 'L' + c + ' ' + d1 + ' ';
     }
+  }
+  d += 'L' + path.points[path.points.length - 1].x + ' ' + path.points[path.points.length - 1].y;
+  return d;
 }
 
 canvas.addEventListener('mousedown', handleMouseDown);
 canvas.addEventListener('mousemove', handleMouseMove);
 canvas.addEventListener('mouseup', handleMouseUp);
-canvas.addEventListener('click', handleSelection);
-canvas.addEventListener('dblclick', handleDeselection);
+canvas.addEventListener('dblclick', handleSelection);
+canvas.addEventListener('click', handleDeselection);
 canvas.addEventListener('keydown', handleKeyDown);
-canvas.addEventListener('mousemove', handleOffCurveDrag);
-
-document.getElementById('stroke-color').addEventListener('input', () => {
-if (currentPath !== null) {
-currentPath.color = document.getElementById('stroke-color').value;
-redraw();
-}
-});
-
-document.getElementById('fill-color').addEventListener('input', () => {
-ctx.fillStyle = document.getElementById('fill-color').value;
-ctx.fillRect(0, 0, canvas.width, canvas.height);
-redraw();
-});
-
-document.getElementById('download').addEventListener('click', () => {
-const svgString = `<svg viewBox="0 0 ${canvas.width} ${canvas.height}" xmlns="http://www.w3.org/2000/svg">;
-for (const path of paths) {
-svgString += <path fill="none" stroke="${path.color}" stroke-width="2" d="${getPathString(path)}"/>;
-}
-svgString += '</svg>';
-
-const blob = new Blob([svgString], { type: 'image/svg+xml' });
-const url = URL.createObjectURL(blob);
-
-const a = document.createElement('a');
-a.href = url;
-a.download = 'drawing.svg';
-document.body.appendChild(a);
-a.click();
-document.body.removeChild(a);
-});
-
-// initialize canvas fill color
-ctx.fillStyle = '#ffffff';
-ctx.fillRect(0, 0, canvas.width, canvas.height);
-    </script>
+canvas.addEventListener('drag', handleOffCurveDrag);
+document.getElementById('download-svg').addEventListener('click', downloadSVG);
+       </script>
 </body>
 </html>
