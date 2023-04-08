@@ -17,73 +17,87 @@
 
   <script>
     const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+const ctx = canvas.getContext('2d');
 
-    let isDrawing = false;
-    let path = [];
+let path = [];
+let isDrawing = false;
+let startX, startY;
 
-    canvas.addEventListener('mousedown', startPath);
-    canvas.addEventListener('mousemove', drawPath);
-    canvas.addEventListener('mouseup', endPath);
-
-    function startPath(e) {
-      isDrawing = true;
-      path.push({x: e.offsetX, y: e.offsetY});
-    }
-
-    function drawPath(e) {
-      if (!isDrawing) return;
-      path.push({x: e.offsetX, y: e.offsetY});
-      draw();
-    }
-
-    function endPath(e) {
-      isDrawing = false;
-    }
-
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = document.getElementById('fill-color').value;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = document.getElementById('stroke-color').value;
-      ctx.lineWidth = 4;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(path[0].x, path[0].y);
-      for (let i = 1; i < path.length - 2; i++) {
-        const c = (path[i].x + path[i + 1].x) / 2;
-        const d = (path[i].y + path[i + 1].y) / 2;
-        ctx.quadraticCurveTo(path[i].x, path[i].y, c, d);
-      }
-      ctx.quadraticCurveTo(path[path.length - 2].x, path[path.length - 2].y, path[path.length - 1].x, path[path.length - 1].y);
-      ctx.stroke();
-    }
-
-    function downloadSVG() {
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}">
-        <path d="${getPathString()}" fill="${document.getElementById('fill-color').value}" stroke="${document.getElementById('stroke-color').value}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>`;
-      const blob = new Blob([svg], {type: 'image/svg+xml'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.download = 'drawing.svg';
-      a.href = url;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    function getPathString() {
-      let pathString = `M ${path[0].x},${path[0].y}`;
-      for (let i = 1; i < path.length - 2; i++) {
-        const c = (path[i].x + path[i + 1].x) / 2;
-const d = (path[i].y + path[i + 1].y) / 2;
-pathString += Q ${path[i].x},${path[i].y} ${c},${d};
-}
-pathString += Q ${path[path.length - 2].x},${path[path.length - 2].y} ${path[path.length - 1].x},${path[path.length - 1].y};
-return pathString;
+function handleMouseDown(e) {
+  startX = e.offsetX;
+  startY = e.offsetY;
+  isDrawing = true;
 }
 
+function handleMouseMove(e) {
+  if (!isDrawing) {
+    return;
+  }
+
+  const x = e.offsetX;
+  const y = e.offsetY;
+
+  path.push({
+    x: (startX + x) / 2,
+    y: (startY + y) / 2
+  });
+
+  startX = x;
+  startY = y;
+
+  redraw();
+}
+
+function handleMouseUp() {
+  isDrawing = false;
+}
+
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = document.getElementById('fill-color').value;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = document.getElementById('stroke-color').value;
+  ctx.lineWidth = 4;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(path[0].x, path[0].y);
+
+  for (let i = 1; i < path.length; i++) {
+    const {x, y} = path[i];
+    ctx.lineTo(x, y);
+  }
+
+  ctx.stroke();
+}
+
+function downloadSVG() {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}">
+    <path d="${getPathString()}" fill="${document.getElementById('fill-color').value}" stroke="${document.getElementById('stroke-color').value}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+  const blob = new Blob([svg], {type: 'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.download = 'drawing.svg';
+  a.href = url;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function getPathString() {
+  let pathString = `M ${path[0].x},${path[0].y}`;
+  for (let i = 1; i < path.length - 2; i++) {
+    const c = (path[i].x + path[i + 1].x) / 2;
+    const d = (path[i].y + path[i + 1].y) / 2;
+    pathString += ` Q ${path[i].x},${path[i].y} ${c},${d}`;
+  }
+  pathString += ` Q ${path[path.length - 2].x},${path[path.length - 2].y} ${path[path.length - 1].x},${path[path.length - 1].y}`;
+  return pathString;
+}
+
+canvas.addEventListener('mousedown', handleMouseDown);
+canvas.addEventListener('mousemove', handleMouseMove);
+canvas.addEventListener('mouseup', handleMouseUp);
 document.getElementById('download-svg').addEventListener('click', downloadSVG);
     </script>
 </body>
