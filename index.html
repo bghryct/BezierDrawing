@@ -16,10 +16,11 @@
   <button id="download-svg">Download SVG</button>
 
   <script>
-    const canvas = document.getElementById('canvas');
+const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-let path = [];
+let paths = [];
+let currentPath = null;
 let isDrawing = false;
 let startX, startY;
 
@@ -27,6 +28,16 @@ function handleMouseDown(e) {
   startX = e.offsetX;
   startY = e.offsetY;
   isDrawing = true;
+
+  if (currentPath === null) {
+    currentPath = {
+      color: document.getElementById('stroke-color').value,
+      points: [{x: startX, y: startY}]
+    };
+    paths.push(currentPath);
+  } else {
+    currentPath.points.push({x: startX, y: startY});
+  }
 }
 
 function handleMouseMove(e) {
@@ -37,13 +48,7 @@ function handleMouseMove(e) {
   const x = e.offsetX;
   const y = e.offsetY;
 
-  path.push({
-    x: (startX + x) / 2,
-    y: (startY + y) / 2
-  });
-
-  startX = x;
-  startY = y;
+  currentPath.points.push({x, y});
 
   redraw();
 }
@@ -52,53 +57,192 @@ function handleMouseUp() {
   isDrawing = false;
 }
 
+function handleSelection(e) {
+  const x = e.offsetX;
+  const y = e.offsetY;
+
+  let selectedPoint = null;
+  let selectedPath = null;
+
+  for (const path of paths) {
+    for (let i = 0; i < path.points.length; i++) {
+      const point = path.points[i];
+      const dist = Math.sqrt((point.x - x) ** 2 + (point.y - y) ** 2);
+      if (dist < 10) {
+        selectedPoint = point;
+        selectedPath = path;
+        break;
+      }
+    }
+    if (selectedPoint !== null) {
+      break;
+    }
+  }
+
+  if (selectedPoint !== null) {
+    currentPath = selectedPath;
+    currentPath.selectedPointIndex = selectedPath.points.indexOf(selectedPoint);
+    redraw();
+  }
+}
+
+function handleDeselection() {
+  if (currentPath !== null) {
+    delete currentPath.selectedPointIndex;
+    currentPath = null;
+    redraw();
+  }
+}
+
+function handleKeyDown(e) {
+  if (e.key === 'Backspace' && currentPath !== null && 'selectedPointIndex' in currentPath) {
+    currentPath.points.splice(currentPath.selectedPointIndex, 1);
+    delete currentPath.selectedPointIndex;
+    redraw();
+  }
+}
+
+function handleOffCurveDrag(e) {
+  const x = e.offsetX;
+  const y = e.offsetY;
+
+  if (currentPath !== null && 'selectedPointIndex' in currentPath) {
+    const {selectedPointIndex, points} = currentPath;
+    const point = points[selectedPointIndex];
+    const prevPoint = points[selectedPointIndex - 1];
+    const nextPoint = points[selectedPointIndex + 1];
+    const prevHandle = point.prevHandle || {x: prevPoint.x, y: prevPoint.y};
+    const nextHandle = point.nextHandle || {x: nextPoint.x, y: nextPoint.y};
+    const dx = x - point.x;
+    const dy = y - point.y;
+
+    if (selectedPointIndex > 0) {
+      prevHandle.x += dx;
+      prevHandle.y += dy;
+      point.prevHandle = prevHandle;
+    }
+
+    if (selectedPointIndex < points.length - 1) {
+      nextHandle.x += dx;
+      nextHandle.y += dy;
+      point.nextHandle = nextHandle;
+    }
+
+    point.x = x;
+    point.y = y;
+
+    redraw();
+  }
+}
+
 function redraw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = document.getElementById('fill-color').value;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = document.getElementById('stroke-color').value;
-  ctx.lineWidth = 4;
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(path[0].x, path[0].y);
-
-  for (let i = 1; i < path.length; i++) {
-    const {x, y} = path[i];
-    ctx.lineTo(x, y);
+  for (const path of paths) {
+ctx.beginPath();
+ctx.moveTo(path.points[0].x, path.points[0].y);
+    for (let i = 1; i < path.points.length - 2; i++) {
+  const c = (path.points[i].x + path.points[i + 1].x) / 2;
+  const d = (path.points[i].y + path.points[i + 1].y) / 2;
+  if (path.points[i].nextHandle && path.points[i + 1].prevHandle) {
+    ctx.bezierCurveTo(path.points[i].nextHandle.x, path.points[i].nextHandle.y, path.points[i + 1].prevHandle.x, path.points[i + 1].prevHandle.y, c, d);
+  } else {
+    ctx.lineTo(c, d);
   }
-
-  ctx.stroke();
 }
 
-function downloadSVG() {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}">
-    <path d="${getPathString()}" fill="${document.getElementById('fill-color').value}" stroke="${document.getElementById('stroke-color').value}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`;
-  const blob = new Blob([svg], {type: 'image/svg+xml'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.download = 'drawing.svg';
-  a.href = url;
-  a.click();
-  URL.revokeObjectURL(url);
+// draw the last segment as a straight line
+ctx.lineTo(path.points[path.points.length - 1].x, path.points[path.points.length - 1].y);
+
+ctx.strokeStyle = path.color;
+ctx.lineWidth = 2;
+ctx.stroke();
+
+// draw off-curve handles
+for (let i = 0; i < path.points.length; i++) {
+  const point = path.points[i];
+  const prevPoint = i > 0 ? path.points[i - 1] : null;
+  const nextPoint = i < path.points.length - 1 ? path.points[i + 1] : null;
+
+  if (prevPoint && point.prevHandle) {
+    ctx.beginPath();
+    ctx.arc(point.prevHandle.x, point.prevHandle.y, 3, 0, 2 * Math.PI);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  if (nextPoint && point.nextHandle) {
+    ctx.beginPath();
+    ctx.arc(point.nextHandle.x, point.nextHandle.y, 3, 0, 2 * Math.PI);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    ctx.stroke();
+  }
 }
 
-function getPathString() {
-  let pathString = `M ${path[0].x},${path[0].y}`;
-  for (let i = 1; i < path.length - 2; i++) {
-    const c = (path[i].x + path[i + 1].x) / 2;
-    const d = (path[i].y + path[i + 1].y) / 2;
-    pathString += ` Q ${path[i].x},${path[i].y} ${c},${d}`;
+// draw selected off-curve handle
+if (currentPath && 'selectedPointIndex' in currentPath) {
+  const point = currentPath.points[currentPath.selectedPointIndex];
+  if (point.prevHandle) {
+    ctx.beginPath();
+    ctx.arc(point.prevHandle.x, point.prevHandle.y, 4, 0, 2 * Math.PI);
+    ctx.fillStyle = 'black';
+    ctx.fill();
+    ctx.stroke();
   }
-  pathString += ` Q ${path[path.length - 2].x},${path[path.length - 2].y} ${path[path.length - 1].x},${path[path.length - 1].y}`;
-  return pathString;
+  if (point.nextHandle) {
+    ctx.beginPath();
+    ctx.arc(point.nextHandle.x, point.nextHandle.y, 4, 0, 2 * Math.PI);
+    ctx.fillStyle = 'black';
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+    }
 }
 
 canvas.addEventListener('mousedown', handleMouseDown);
 canvas.addEventListener('mousemove', handleMouseMove);
 canvas.addEventListener('mouseup', handleMouseUp);
-document.getElementById('download-svg').addEventListener('click', downloadSVG);
+canvas.addEventListener('click', handleSelection);
+canvas.addEventListener('dblclick', handleDeselection);
+canvas.addEventListener('keydown', handleKeyDown);
+canvas.addEventListener('mousemove', handleOffCurveDrag);
+
+document.getElementById('stroke-color').addEventListener('input', () => {
+if (currentPath !== null) {
+currentPath.color = document.getElementById('stroke-color').value;
+redraw();
+}
+});
+
+document.getElementById('fill-color').addEventListener('input', () => {
+ctx.fillStyle = document.getElementById('fill-color').value;
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+redraw();
+});
+
+document.getElementById('download').addEventListener('click', () => {
+const svgString = `<svg viewBox="0 0 ${canvas.width} ${canvas.height}" xmlns="http://www.w3.org/2000/svg">;
+for (const path of paths) {
+svgString += <path fill="none" stroke="${path.color}" stroke-width="2" d="${getPathString(path)}"/>;
+}
+svgString += '</svg>';
+
+const blob = new Blob([svgString], { type: 'image/svg+xml' });
+const url = URL.createObjectURL(blob);
+
+const a = document.createElement('a');
+a.href = url;
+a.download = 'drawing.svg';
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+});
+
+// initialize canvas fill color
+ctx.fillStyle = '#ffffff';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
     </script>
 </body>
 </html>
